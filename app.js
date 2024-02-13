@@ -166,7 +166,7 @@ app.post('/login', async (req, res) => {
     try {
       // Check if user exists with the provided credentials
       const [users] = await pool.query(
-        'SELECT email FROM Users_info WHERE email = ? AND password = ?',
+        'SELECT email, name, nickname, phone, gender, address FROM Users_info WHERE email = ? AND password = ?',
         [email, password]
       );
 
@@ -192,6 +192,7 @@ app.post('/login', async (req, res) => {
   }
 });
 
+
 // 로그아웃 처리
 app.get('/logout', (req, res) => {
   // 세션을 삭제합니다.
@@ -207,100 +208,96 @@ app.get('/logout', (req, res) => {
   });
 });
 
-// 마이페이지 페이지 렌더링
-app.get('/mypage', async (req, res) => {
-  try {
-    // 세션에서 사용자의 정보를 가져옵니다.
-    const user = req.session.user;
+app.get("/mypage", async (req, res) => {
+	try {
+		// 세션에서 사용자의 정보를 가져옵니다.
+		const user = req.session.user;
 
-    // 사용자가 로그인되어 있지 않으면 로그인 페이지로 리다이렉트합니다.
-    if (!user) {
-      console.log('User is not logged in. Redirecting to login page.');
-      return res.redirect('/login');
-    }
+		// 사용자가 로그인되어 있지 않으면 401 Unauthorized 상태 코드를 반환합니다.
+		if (!user) {
+			console.log("User is not logged in. Redirecting to login page.");
+			return res
+				.status(401)
+				.json({ error: "사용자가 로그인되어 있지 않습니다." });
+		}
 
-    // 사용자가 로그인되어 있으면 마이페이지 페이지를 렌더링합니다.
-    // 템플릿에 user 정보를 전달하여 렌더링합니다.
-    return res.render('mypage', { user: user });
-  } catch (error) {
-    console.error('Error retrieving user mypage:', error);
-    return res
-      .status(500)
-      .json({ error: '마이페이지을 가져오는 중 오류가 발생했습니다.' });
-  }
+		// 사용자 정보가 정상적으로 있으면 마이페이지 정보를 응답합니다.
+		return res.status(200).json({ user });
+	} catch (error) {
+		console.error("Error retrieving user mypage:", error.message);
+		return res
+			.status(500)
+			.json({ error: "마이페이지 정보를 가져오는 중 오류가 발생했습니다." });
+	}
 });
 
-// 마이페이지 업데이트
-app.post('/mypage_update', async (req, res) => {
-  try {
-    // 세션에서 사용자의 정보를 가져옵니다.
-    let user = req.session.user;
+// 사용자의 마이페이지 정보 업데이트
+app.post("mypage/update", async (req, res) => {
+	try {
+		// 세션에서 사용자의 정보를 가져옵니다.
+		let user = req.session.user;
 
-    // 사용자가 로그인되어 있지 않으면 로그인 페이지로 리다이렉트합니다.
-    if (!user) {
-      console.log('User is not logged in. Redirecting to login page.');
-      return res.redirect('/login');
-    }
+		// 사용자가 로그인되어 있지 않으면 401 Unauthorized 상태 코드를 반환합니다.
+		if (!user) {
+			console.log("User is not logged in. Redirecting to login page.");
+			return res
+				.status(401)
+				.json({ error: "사용자가 로그인되어 있지 않습니다." });
+		}
 
-    // 요청에서 업데이트할 사용자 정보를 가져옵니다.
-    const { email, phone, address } = req.body;
+		// 요청에서 업데이트할 사용자 정보를 가져옵니다.
+		const { name, gender, address, phone } = req.body;
 
-    // 새로운 사용자 정보로 업데이트합니다.
-    user = {
-      ...user,
-      email: email || user.email,
-      phone: phone || user.phone,
-      address: address || user.address,
-    };
+		// 새로운 사용자 정보로 업데이트합니다.
+		user = {
+			...user,
+			name: name || user.name,
+			gender: gender || user.gender,
+			address: address || user.address,
+			phone: phone || user.phone,
+			
+		};
 
-    // 업데이트된 사용자 정보를 세션에 저장합니다.
-    req.session.user = user;
+		// 업데이트된 사용자 정보를 세션에 저장합니다.
+		req.session.user = user;
 
-    // Users_info 테이블의 사용자 정보 업데이트
-    await pool.query(
-      'UPDATE Users_info SET email = ?, phone = ?, address = ? WHERE ID = ?',
-      [user.email, user.nickname, user.phone, user.address]
-    );
-
-    // mypage 테이블의 사용자 정보 업데이트
-    await pool.query(
-      'UPDATE mypage SET email = ?, phone = ?, address = ? WHERE ID = ?',
-      [user.email, user.phone, user.address]
-    );
-
-    // 마이페이지 업데이트가 성공했음을 응답합니다.
-    return res
-      .status(200)
-      .json({ message: '마이페이지이 성공적으로 업데이트되었습니다.' });
-  } catch (error) {
-    console.error('Error updating user mypage:', error);
-    return res
-      .status(500)
-      .json({ error: '마이페이지을 업데이트하는 중 오류가 발생했습니다.' });
-  }
+		// 사용자 정보 업데이트가 성공했음을 응답합니다.
+		return res.status(200).json({
+			message: "마이페이지 정보가 성공적으로 업데이트되었습니다.",
+			user,
+		});
+	} catch (error) {
+		console.error("Error updating user mypage:", error.message);
+		return res.status(500).json({
+			error: "마이페이지 정보를 업데이트하는 중 오류가 발생했습니다.",
+		});
+	}
 });
 
 // 마이페이지 편집 페이지 렌더링
-app.get('/mypage/edit', async (req, res) => {
-  try {
-    // 세션에서 사용자의 정보를 가져옵니다.
-    const user = req.session.user;
+app.get("mypage/edit", async (req, res) => {
+	try {
+		// 세션에서 사용자의 정보를 가져옵니다.
+		const user = req.session.user;
 
-    // 사용자가 로그인되어 있지 않으면 로그인 페이지로 리다이렉트합니다.
-    if (!user) {
-      console.log('User is not logged in. Redirecting to login page.');
-      return res.redirect('/login');
-    }
+		// 사용자가 로그인되어 있지 않으면 401 Unauthorized 상태 코드를 반환합니다.
+		if (!user) {
+			console.log("User is not logged in. Redirecting to login page.");
+			return res
+				.status(401)
+				.json({ error: "사용자가 로그인되어 있지 않습니다." });
+		}
 
-    // 마이페이지 편집 페이지를 렌더링합니다.
-    return res.render('mypage_edit', { user: user });
-  } catch (error) {
-    console.error('Error rendering mypage edit page:', error);
-    return res.status(500).json({
-      error: '마이페이지 편집 페이지를 렌더링하는 중 오류가 발생했습니다.',
-    });
-  }
+		// 마이페이지 편집 페이지를 렌더링합니다.
+		return res.status(200).json({ user });
+	} catch (error) {
+		console.error("Error rendering mypage edit page:", error.message);
+		return res.status(500).json({
+			error: "마이페이지 편집 페이지를 렌더링하는 중 오류가 발생했습니다.",
+		});
+	}
 });
+
 
 app.get('/Users_info', (req, res) => {
   res.render('Users_info');
@@ -352,8 +349,8 @@ app.post('/Users_infoProc', async (req, res) => {
 
       // Insert user into mypage table
       await pool.query(
-        'INSERT INTO mypage (email, name, phone, gender, address) VALUES (?, ?, ?, ?, ?,?,?)',
-        [email, name, nickname, phone, gender, address]
+        'INSERT INTO mypage ( nickname, name, gender, address, phone) VALUES (?, ?, ?, ?, ?)',
+        [nickname, name, gender, address, phone]
       );
 
       console.log('Inserted one record into Users_info table.');
